@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drowsiness Detection (Client Only)</title>
+<style>
+  video, canvas { position: absolute; left: 0; top: 0; }
+  #alert { position: absolute; top: 10px; left: 10px; font-size: 24px; color: red; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<video id="video" autoplay muted playsinline width="640" height="480" style="transform: scaleX(-1);"></video>
+<canvas id="canvas" width="640" height="480"></canvas>
+<div id="alert"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+<script>
+const videoElement = document.getElementById('video');
+const canvasElement = document.getElementById('canvas');
+const canvasCtx = canvasElement.getContext('2d');
+const alertElement = document.getElementById('alert');
+
+// EAR threshold below which eyes considered closed (tune this)
+const EAR_THRESHOLD = 0.25;
+// Number of frames eyes closed to trigger drowsiness alert
+const CONSEC_FRAMES = 15;
+
+let closedEyeFrames = 0;
+
+function calcEAR(landmarks, leftEyeIndices, rightEyeIndices) {
+  // Calculate Eye Aspect Ratio (EAR) for both eyes
+  function eyeAspectRatio(eye) {
+    function dist(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+    const A = dist(eye[1], eye[5]);
+    const B = dist(eye[2], eye[4]);
+    const C = dist(eye[0], eye[3]);
+    return (A + B) / (2.0 * C);
+  }
+  const leftEye = leftEyeIndices.map(i => landmarks[i]);
+  const rightEye = rightEyeIndices.map(i => landmarks[i]);
+  return (eyeAspectRatio(leftEye) + eyeAspectRatio(rightEye)) / 2.0;
+}
+
+const LEFT_EYE_INDICES = [33, 160, 158, 133, 153, 144];  // MediaPipe indices
+const RIGHT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
+
+async function setupCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {width: 640, height: 480},
+    audio: false
+  });
+  videoElement.srcObject = stream;
+  return new Promise((resolve) => {
+    videoElement.onloadedmetadata = () => {
+      resolve(videoElement);
+    };
+  });
+}
+
+function onResults(results) {
+  canvasCtx.save();
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+  if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+    const landmarks = results.multiFaceLandmarks[0];
+    // Draw face mesh for visualization
+    window.drawConnectors(canvasCtx, landmarks, window.FACEMESH_TESSELATION,
+      {color: '#C0C0C070', lineWidth: 1});
+    window.drawConnectors(canvasCtx, landmarks, window.FACEMESH_RIGHT_EYE, {color: 'red'});
+    window.drawConnectors(canvasCtx, landmarks, window.FACEMESH_LEFT_EYE, {color: 'red'});
+
+    const ear = calcEAR(landmarks, LEFT_EYE_INDICES, RIGHT_EYE_INDICES);
+    // console.log('EAR:', ear.toFixed(3));
+    if (ear < EAR_THRESHOLD) {
+      closedEyeFrames++;
+      if (closedEyeFrames >= CONSEC_FRAMES) {
+        alertElement.textContent = '😴 Drowsiness detected! Please stay alert!';
+      }
+    } else {
+      closedEyeFrames = 0;
+      alertElement.textContent = '';
+    }
+  } else {
+    // No face detected
+    alertElement.textContent = 'Face not detected';
+    closedEyeFrames = 0;
+  }
+  canvasCtx.restore();
+}
+
+async function main() {
+  await setupCamera();
+
+  const faceMesh = new window.FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  });
+
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+
+  faceMesh.onResults(onResults);
+
+  async function detectFrame() {
+    await faceMesh.send({image: videoElement});
+    requestAnimationFrame(detectFrame);
+  }
+  detectFrame();
+}
+
+main();
+</script>
+</body>
+</html>

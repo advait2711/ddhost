@@ -1,7 +1,5 @@
 streamlit
 opencv-python
-dlib
-imutils
+mediapipe
 numpy
 Pillow
-pygame

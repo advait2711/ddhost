@@ -1,11 +1,29 @@
-# drowsiness
+# Drowsiness Detection System
 
-• The program uses OpenCV and dlib for facial landmark detection
-and eye state analysis.
-• The ‘compute’ function calculates the Euclidean distance between
-two points.
-• The ‘blinked’ function evaluates the blink ratio to determine if the
-eyes are closed.
-• The program continuously captures framed from the webcam,
-detects faces, analyses eyes states, and categorizes the user as
-“Sleeping”, “Drowsy”, or “Active” based on blink ratios.
+This project implements a Drowsiness Detection System using Python. It leverages OpenCV and dlib for facial landmark detection, with data stored in a MySQL database. The system monitors drowsiness in real-time using a webcam and provides visual feedback through a Streamlit application.
+
+## Features
+
+- Real-time detection of drowsiness and sleep status
+- Storage of detection data (date, time, status, and frame) in a MySQL database
+- Streamlit app to display captured frames and statuses
+
+## Requirements
+
+- Python 3.x
+- OpenCV
+- dlib
+- NumPy
+- mysql-connector-python
+- Pillow
+- Pygame
+- imutils
+- Streamlit
+
+## Drowsiness Detection
+Run the detection script:
+   - python d.py
+
+## Data Visualization
+Run the Streamlit application:
+   - streamlit run ddata.py
